@@ -79,8 +79,20 @@
   z-index: 999;
 }
 
+.close-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: red;
+}
+
 .modal h2 {
   margin-top: 0;
+  margin-bottom: 20px;
 }
 
 .modal form {
@@ -92,14 +104,29 @@
   margin-bottom: 10px;
 }
 
-.modal input {
+.modal input, .modal-select {
   padding: 8px;
   margin-top: 4px;
   border: 1px solid #ccc;
   border-radius: 4px;
+  width: 100%;
 }
 
 .modal-message {
   margin-top: 10px;
   color: red;
+}
+
+.modal-button {
+  background-color: #45a049;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 10px;
+  cursor: pointer;
+  margin-top: 20px;
+}
+
+.modal-button:hover {
+  background-color: #45a049;
 }
