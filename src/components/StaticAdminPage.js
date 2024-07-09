@@ -11,7 +11,6 @@ function StaticAdminPage() {
   const [inputType, setInputType] = useState('url');
   const [url, setUrl] = useState('');
   const [file, setFile] = useState(null);
-  const [name, setName] = useState('');
   const [message, setMessage] = useState('');
 
   const handleLogout = () => {
@@ -30,11 +29,10 @@ function StaticAdminPage() {
   const handleAddData = async () => {
     let requestBody = {};
     if (inputType === 'url') {
-      requestBody = { url, name };
+      requestBody = { url };
     } else {
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('name', name);
       requestBody = formData;
     }
 
@@ -51,7 +49,6 @@ function StaticAdminPage() {
         setMessage(data.message);
         setUrl('');
         setFile(null);
-        setName('');
       } else {
         setMessage(data.error || 'Failed to add data');
       }
@@ -103,7 +100,7 @@ function StaticAdminPage() {
         <h2>Add Data</h2>
         <form onSubmit={(e) => { e.preventDefault(); handleAddData(); }}>
           <label>
-            Type:
+            Data Type:
             <select value={inputType} onChange={(e) => setInputType(e.target.value)} className="modal-select">
               <option value="url">URL</option>
               <option value="pdf">PDF</option>
@@ -122,7 +119,7 @@ function StaticAdminPage() {
             </label>
           ) : (
             <label>
-              File:
+              Upload PDF:
               <input
                 type="file"
                 onChange={(e) => setFile(e.target.files[0])}
@@ -131,17 +128,7 @@ function StaticAdminPage() {
               />
             </label>
           )}
-          <label>
-            Name:
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              className="modal-input"
-            />
-          </label>
-          <button type="submit" className="modal-button">Submit</button>
+          <button type="submit" className="modal-button">Add</button>
         </form>
         {message && <p className="modal-message">{message}</p>}
       </Modal>
