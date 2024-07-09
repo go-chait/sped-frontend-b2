@@ -1,24 +1,19 @@
-import logo from './logo.svg';
-import './App.css';
+import React from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import DynamicLoginPage from './components/DynamicLoginPage';
+import SignUpPage from './components/SignUpPage';
+import StaticAdminPage from './components/StaticAdminPage';
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <Router>
+      <Routes>
+        <Route path="/" element={<DynamicLoginPage />} />
+        <Route path="/signup" element={<SignUpPage />} />
+        <Route path="/admin" element={<StaticAdminPage />} />
+        <Route path="/login" element={<DynamicLoginPage />} />
+      </Routes>
+    </Router>
   );
 }
 
