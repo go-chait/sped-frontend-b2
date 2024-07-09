@@ -8,7 +8,9 @@ Modal.setAppElement('#root'); // This is to prevent screen readers from reading 
 function StaticAdminPage() {
   const navigate = useNavigate();
   const [modalIsOpen, setModalIsOpen] = useState(false);
+  const [inputType, setInputType] = useState('url');
   const [url, setUrl] = useState('');
+  const [file, setFile] = useState(null);
   const [name, setName] = useState('');
   const [message, setMessage] = useState('');
 
@@ -26,13 +28,21 @@ function StaticAdminPage() {
   };
 
   const handleAddData = async () => {
+    let requestBody = {};
+    if (inputType === 'url') {
+      requestBody = { url, name };
+    } else {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('name', name);
+      requestBody = formData;
+    }
+
     try {
       const response = await fetch('http://localhost:8000/scrape-and-store-url', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ url, name })
+        headers: inputType === 'url' ? { 'Content-Type': 'application/json' } : {},
+        body: inputType === 'url' ? JSON.stringify(requestBody) : requestBody
       });
 
       const data = await response.json();
@@ -40,6 +50,7 @@ function StaticAdminPage() {
       if (response.ok) {
         setMessage(data.message);
         setUrl('');
+        setFile(null);
         setName('');
       } else {
         setMessage(data.error || 'Failed to add data');
@@ -88,17 +99,38 @@ function StaticAdminPage() {
         className="modal"
         overlayClassName="overlay"
       >
+        <button onClick={closeModal} className="close-button">X</button>
         <h2>Add Data</h2>
         <form onSubmit={(e) => { e.preventDefault(); handleAddData(); }}>
           <label>
-            URL:
-            <input
-              type="text"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              required
-            />
+            Type:
+            <select value={inputType} onChange={(e) => setInputType(e.target.value)} className="modal-select">
+              <option value="url">URL</option>
+              <option value="pdf">PDF</option>
+            </select>
           </label>
+          {inputType === 'url' ? (
+            <label>
+              URL:
+              <input
+                type="text"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                required
+                className="modal-input"
+              />
+            </label>
+          ) : (
+            <label>
+              File:
+              <input
+                type="file"
+                onChange={(e) => setFile(e.target.files[0])}
+                required
+                className="modal-input"
+              />
+            </label>
+          )}
           <label>
             Name:
             <input
@@ -106,10 +138,10 @@ function StaticAdminPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
+              className="modal-input"
             />
           </label>
           <button type="submit" className="modal-button">Submit</button>
-          <button type="button" className="modal-button" onClick={closeModal}>Cancel</button>
         </form>
         {message && <p className="modal-message">{message}</p>}
       </Modal>
