@@ -12,7 +12,6 @@ function SignUpPage() {
 
   const handleSignUp = async () => {
     const requestBody = { email, password, userName };
-    console.log('Request Body:', requestBody);  // Log the request body
 
     try {
       const response = await fetch('http://localhost:8000/signup', {

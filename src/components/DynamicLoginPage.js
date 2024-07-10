@@ -20,6 +20,14 @@ function DynamicLoginPage() {
 
       const data = await response.json();
 
+      console.log("Login COMPLETE: ")
+      console.log(data)
+
+      window.localStorage.setItem("access_token", data?.access_token)
+
+      window.localStorage.setItem('userId', data?.user['_id']); // Store the user ID
+      window.localStorage.setItem('role', data?.user['role']); // Store the user ID
+
       if (response.ok) {
         setMessage('Login successful');
         navigate('/admin');

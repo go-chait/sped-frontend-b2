@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Modal from 'react-modal';
+import axios from 'axios';
+import { scrapeAndStoreUrl, scrapeAndStoreFileAdmin, viewUserDocs, scrapeAndStoreFileUser } from '../services/api'; // Import the API functions
 import './AdminPage.css';
 
-Modal.setAppElement('#root'); // This is to prevent screen readers from reading the background content when the modal is open
+Modal.setAppElement('#root'); 
 
 function StaticAdminPage() {
   const navigate = useNavigate();
@@ -11,7 +13,50 @@ function StaticAdminPage() {
   const [inputType, setInputType] = useState('url');
   const [url, setUrl] = useState('');
   const [file, setFile] = useState(null);
+  const [fileName, setFileName] = useState('');
   const [message, setMessage] = useState('');
+  const [documents, setDocuments] = useState([]);
+  const [role, setRole] = useState('');
+
+  useEffect(() => {
+    const fetchDocuments = async () => {
+      try {
+        const token = window.localStorage.getItem('access_token');
+        const userId = window.localStorage.getItem('userId');
+        const response = await viewUserDocs(token, userId);
+        setDocuments(response.user_docs);
+      } catch (error) {
+        console.error('Error fetching user documents:', error);
+        setMessage(`Error: ${error.detail || JSON.stringify(error)}`);
+      }
+    };
+
+    const fetchUserRole = async () => {
+      try {
+        const token = window.localStorage.getItem('access_token');
+        const userId = window.localStorage.getItem('userId');
+
+        if (!userId) {
+          throw new Error('User ID is not defined');
+        }
+
+        const response = await axios.get(`http://localhost:8000/users/${userId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        const role = response.data.role;
+        window.localStorage.setItem('role', role);
+    
+        setRole(response.data.role);
+      } catch (error) {
+        console.error('Error fetching user role:', error);
+      }
+    };
+
+    fetchDocuments();
+    fetchUserRole();
+  }, []);
 
   const handleLogout = () => {
     navigate('/');
@@ -27,31 +72,33 @@ function StaticAdminPage() {
   };
 
   const handleAddData = async () => {
-    let requestBody = {};
-    if (inputType === 'url') {
-      requestBody = { url };
-    } else {
-      const formData = new FormData();
-      formData.append('file', file);
-      requestBody = formData;
-    }
-
+    const token = window.localStorage.getItem('access_token');
+    // const role = window.localStorage.getItem('role');
     try {
-      const response = await fetch('http://localhost:8000/scrape-and-store-url', {
-        method: 'POST',
-        headers: inputType === 'url' ? { 'Content-Type': 'application/json' } : {},
-        body: inputType === 'url' ? JSON.stringify(requestBody) : requestBody
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setMessage(data.message);
-        setUrl('');
-        setFile(null);
+      let response;
+      if (inputType === 'url') {
+        response = await scrapeAndStoreUrl(url, fileName, token);
       } else {
-        setMessage(data.error || 'Failed to add data');
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          const base64Content = e.target.result.split(',')[1];
+          if (role.toLowerCase() === 'user') {
+            response = await scrapeAndStoreFileUser(fileName, 'pdf', base64Content, token);
+          } else if (role.toLowerCase() === 'admin') {
+            response = await scrapeAndStoreFileAdmin(fileName, 'pdf', base64Content, token);
+          } else {
+            setMessage('Access denied. Only users with the role "user" or "admin" can upload PDFs.');
+            return;
+          }
+          setMessage(response.message);
+          closeModal();
+        };
+        reader.readAsDataURL(file);
       }
+      setMessage(response.message);
+      setUrl('');
+      setFile(null);
+      setFileName('');
     } catch (error) {
       setMessage('An error occurred: ' + error.message);
     }
@@ -71,21 +118,19 @@ function StaticAdminPage() {
               <th>Type</th>
               <th>Date</th>
               <th>Status</th>
+              <th>Role</th>
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td>Example Data</td>
-              <td>PDF</td>
-              <td>2023-01-01</td>
-              <td>Scraped</td>
-            </tr>
-            <tr>
-              <td>Example Data 2</td>
-              <td>Link</td>
-              <td>2023-01-02</td>
-              <td>Failed</td>
-            </tr>
+            {documents.map((doc) => (
+              <tr key={doc._id}>
+                <td>{doc.name}</td>
+                <td>{doc.type}</td>
+                <td>{doc.date}</td>
+                <td>{doc.status}</td>
+                <td>{doc.role}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
@@ -105,6 +150,16 @@ function StaticAdminPage() {
               <option value="url">URL</option>
               <option value="pdf">PDF</option>
             </select>
+          </label>
+          <label>
+            Name:
+            <input
+              type="text"
+              value={fileName}
+              onChange={(e) => setFileName(e.target.value)}
+              required
+              className="modal-input"
+            />
           </label>
           {inputType === 'url' ? (
             <label>
