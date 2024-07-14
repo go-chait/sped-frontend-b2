@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Modal from 'react-modal';
 import axios from 'axios';
-import { scrapeAndStoreUrl, scrapeAndStoreFileAdmin, viewUserDocs, scrapeAndStoreFileUser } from '../services/api'; // Import the API functions
+import { scrapeAndStoreUrl, scrapeAndStoreFileAdmin, viewAdminDocs } from '../services/api';
 import './AdminPage.css';
+import LoadingSpinner from './LoadingSpinner';
 
-Modal.setAppElement('#root'); 
+Modal.setAppElement('#root');
 
 function StaticAdminPage() {
   const navigate = useNavigate();
@@ -17,16 +18,23 @@ function StaticAdminPage() {
   const [message, setMessage] = useState('');
   const [documents, setDocuments] = useState([]);
   const [role, setRole] = useState('');
+  const [errorModalIsOpen, setErrorModalIsOpen] = useState(false); 
+  const [errorMessage, setErrorMessage] = useState(''); 
+  const [scrapeModalIsOpen, setScrapeModalIsOpen] = useState(false); 
+  const [scrapeMessage, setScrapeMessage] = useState(''); 
+  const [isLoading, setIsLoading] = useState(false); // Track loading state for scraping process
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [documentsPerPage] = useState(5);
 
   useEffect(() => {
     const fetchDocuments = async () => {
       try {
         const token = window.localStorage.getItem('access_token');
-        const userId = window.localStorage.getItem('userId');
-        const response = await viewUserDocs(token, userId);
-        setDocuments(response.user_docs);
+        const response = await viewAdminDocs(token);
+        setDocuments(response.admin_docs);
       } catch (error) {
-        console.error('Error fetching user documents:', error);
+        console.error('Error fetching admin documents:', error);
         setMessage(`Error: ${error.detail || JSON.stringify(error)}`);
       }
     };
@@ -47,16 +55,22 @@ function StaticAdminPage() {
         });
         const role = response.data.role;
         window.localStorage.setItem('role', role);
-    
-        setRole(response.data.role);
+
+        if (role.toLowerCase() !== 'admin') {
+          throw new Error('Access denied. Only admins can access this platform.');
+        }
+
+        setRole(role);
       } catch (error) {
         console.error('Error fetching user role:', error);
+        setErrorMessage('Access denied. Only admins can access this platform.'); 
+        setErrorModalIsOpen(true); 
       }
     };
 
     fetchDocuments();
     fetchUserRole();
-  }, []);
+  }, [navigate]);
 
   const handleLogout = () => {
     navigate('/');
@@ -71,9 +85,18 @@ function StaticAdminPage() {
     setMessage('');
   };
 
+  const closeErrorModal = () => {
+    setErrorModalIsOpen(false);
+    navigate('/'); 
+  };
+  const closeScrapeModal = () => {
+    setScrapeModalIsOpen(false);
+    setMessage(''); 
+  };
+
   const handleAddData = async () => {
     const token = window.localStorage.getItem('access_token');
-    // const role = window.localStorage.getItem('role');
+    setIsLoading(true); 
     try {
       let response;
       if (inputType === 'url') {
@@ -82,27 +105,51 @@ function StaticAdminPage() {
         const reader = new FileReader();
         reader.onload = async (e) => {
           const base64Content = e.target.result.split(',')[1];
-          if (role.toLowerCase() === 'user') {
-            response = await scrapeAndStoreFileUser(fileName, 'pdf', base64Content, token);
-          } else if (role.toLowerCase() === 'admin') {
-            response = await scrapeAndStoreFileAdmin(fileName, 'pdf', base64Content, token);
+          response = await scrapeAndStoreFileAdmin(fileName, 'pdf', base64Content, token);
+          if (response && response.message) {
+            setScrapeMessage(response.message);
+            setScrapeModalIsOpen(true);
+            setUrl('');
+            setFile(null);
+            setFileName('');
+            closeModal();
           } else {
-            setMessage('Access denied. Only users with the role "user" or "admin" can upload PDFs.');
-            return;
+            throw new Error('Unknown response from server');
           }
-          setMessage(response.message);
-          closeModal();
+          // closeModal(); 
         };
         reader.readAsDataURL(file);
       }
-      setMessage(response.message);
+      if (response && response.message) {
+        setScrapeMessage(response.message);
+        setScrapeModalIsOpen(true);
+        closeModal();
+        setUrl('');
+        setFile(null);
+        setFileName('');
+      } else {
+        throw new Error('Unknown response from server');
+      }
       setUrl('');
       setFile(null);
       setFileName('');
     } catch (error) {
-      setMessage('An error occurred: ' + error.message);
+      console.error('Scraping error:', error);
+      // setScrapeMessage('An error occurred during scraping.');
+      setScrapeModalIsOpen(true); 
+    }
+    finally {
+      setIsLoading(false); // Stop loading
     }
   };
+
+  
+  const indexOfLastDocument = currentPage * documentsPerPage;
+  const indexOfFirstDocument = indexOfLastDocument - documentsPerPage;
+  const currentDocuments = documents.slice(indexOfFirstDocument, indexOfLastDocument);
+
+  
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   return (
     <div className="admin-container">
@@ -118,21 +165,26 @@ function StaticAdminPage() {
               <th>Type</th>
               <th>Date</th>
               <th>Status</th>
-              <th>Role</th>
             </tr>
           </thead>
           <tbody>
-            {documents.map((doc) => (
+            {currentDocuments.map((doc) => (
               <tr key={doc._id}>
                 <td>{doc.name}</td>
                 <td>{doc.type}</td>
                 <td>{doc.date}</td>
                 <td>{doc.status}</td>
-                <td>{doc.role}</td>
               </tr>
             ))}
           </tbody>
         </table>
+        <div className="pagination">
+          {[...Array(Math.ceil(documents.length / documentsPerPage)).keys()].map(number => (
+            <button key={number + 1} onClick={() => paginate(number + 1)}>
+              {number + 1}
+            </button>
+          ))}
+        </div>
       </div>
       <Modal
         isOpen={modalIsOpen}
@@ -183,9 +235,36 @@ function StaticAdminPage() {
               />
             </label>
           )}
-          <button type="submit" className="modal-button">Add</button>
+
+          <button type="submit" className="modal-button" onClick={openModal} disabled={isLoading}>
+            {isLoading ? <LoadingSpinner /> : 'Add Data'}
+          </button>
         </form>
         {message && <p className="modal-message">{message}</p>}
+      </Modal>
+      <Modal
+        isOpen={errorModalIsOpen}
+        onRequestClose={closeErrorModal}
+        contentLabel="Error Modal"
+        className="modal"
+        overlayClassName="overlay"
+      >
+        <button onClick={closeErrorModal} className="close-button">X</button>
+        <h2>Error</h2>
+        <p>{errorMessage}</p>
+        <button onClick={closeErrorModal} className="modal-button">Close</button>
+      </Modal>
+      <Modal
+        isOpen={scrapeModalIsOpen}
+        onRequestClose={closeScrapeModal}
+        contentLabel="Scrape Modal"
+        className="modal"
+        overlayClassName="overlay"
+      >
+        <button onClick={closeScrapeModal} className="close-button">X</button>
+        <h2>Scraping Result</h2>
+        <p>{scrapeMessage}</p>
+        <button onClick={closeScrapeModal} className="modal-button">Close</button>
       </Modal>
     </div>
   );

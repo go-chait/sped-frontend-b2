@@ -6,12 +6,13 @@ function SignUpPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [userName, setUserName] = useState('');
+  const [role, setRole] = useState(''); 
   const [message, setMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const navigate = useNavigate();
 
   const handleSignUp = async () => {
-    const requestBody = { email, password, userName };
+    const requestBody = { email, password, userName, role };
 
     try {
       const response = await fetch('http://localhost:8000/signup', {
@@ -57,6 +58,13 @@ function SignUpPage() {
         placeholder="Password" 
         value={password}
         onChange={(e) => setPassword(e.target.value)}
+        className="signup-input"
+      />
+      <input 
+        type="text" 
+        placeholder="Role" 
+        value={role} // Role input
+        onChange={(e) => setRole(e.target.value)} // Update role state
         className="signup-input"
       />
       <button className="signup-button" onClick={handleSignUp}>Sign Up</button>

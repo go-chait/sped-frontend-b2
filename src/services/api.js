@@ -76,3 +76,20 @@ export const viewUserDocs = async (token, userId) => {
     throw error.response.data;
   }
 };
+
+
+export const viewAdminDocs = async (token) => {
+  try {
+    const response = await axios.get(
+      `${API_BASE_URL}/scrape/view-admin-docs`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    );
+    return response.data;
+  } catch (error) {
+    throw error.response.data;
+  }
+};
